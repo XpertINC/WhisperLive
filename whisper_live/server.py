@@ -711,14 +711,14 @@ class ServeClientFasterWhisper(ServeClientBase):
         self.task = task
         self.initial_prompt = initial_prompt
 
-        """"
+        """
             VadOptions() Default 값
                 threshold: float = 0.5
                 min_speech_duration_ms: int = 250
                 max_speech_duration_s: float = float("inf")
-                min_silence_duration_ms: int = 2000
-                window_size_samples: int = 1024
-                speech_pad_ms: int = 400
+                min_silence_duration_ms: int = 2000 # TODO: 수정
+                window_size_samples: int = 1024 
+                speech_pad_ms: int = 400 # TODO: 수정
 
             VadOptions 클래스는 음성 활동 감지(Voice Activity Detection, VAD) 처리를 위한 설정 옵션을 정의합니다. 다음은 각 파라미터의 설명입니다:
 
@@ -732,7 +732,7 @@ class ServeClientFasterWhisper(ServeClientBase):
             이러한 파라미터들은 Silero VAD 모델을 사용하여 오디오 데이터를 음성 청크로 분할할 때 사용됩니다. 사용자는 이 옵션들을 조정하여 VAD 처리의 성능을 최적화할 수 있습니다.
         """
         self.vad_parameters = vad_parameters or {"threshold": 0.5}
-        self.no_speech_thresh = 0.45
+        self.no_speech_thresh = 0.6
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -822,7 +822,10 @@ class ServeClientFasterWhisper(ServeClientBase):
             language=self.language,
             task=self.task,
             vad_filter=self.use_vad,
-            vad_parameters=self.vad_parameters if self.use_vad else None)
+            vad_parameters=self.vad_parameters if self.use_vad else None,
+            word_timestamps=True,
+            hallucination_silence_threshold=1)
+        # print(f"result: {result}")
 
         if self.language is None and info is not None:
             self.set_language(info)
@@ -963,19 +966,35 @@ class ServeClientFasterWhisper(ServeClientBase):
         offset = None
         self.current_out = ''
         # process complete segments
-        if len(segments) > 1:
-            for i, s in enumerate(segments[:-1]):
-                text_ = s.text
-                self.text.append(text_)
-                start, end = self.timestamp_offset + s.start, self.timestamp_offset + min(duration, s.end)
+        # TODO: segments가 다시 reset 될 때, 왜 no_speech_prob 적용하지 않는지?
+        # if len(segments) > 1:
+        #     for i, s in enumerate(segments[:-1]):
+        #         print("segment: ", s)
+        #         text_ = s.text
+        #         self.text.append(text_)
+        #         start, end = self.timestamp_offset + s.start, self.timestamp_offset + min(duration, s.end)
 
-                if start >= end:
-                    continue
-                if s.no_speech_prob > self.no_speech_thresh:
-                    continue
+        #         if start >= end:
+        #             continue
+        #         if s.no_speech_prob > self.no_speech_thresh:
+        #             continue
 
-                self.transcript.append(self.format_segment(start, end, text_))
-                offset = min(duration, s.end)
+        #         self.transcript.append(self.format_segment(start, end, text_))
+        #         offset = min(duration, s.end)
+
+        print("segments: ", segments[:-1])
+        for i, s in enumerate(segments[:-1]):
+            text_ = s.text
+            self.text.append(text_)
+            start, end = self.timestamp_offset + s.start, self.timestamp_offset + min(duration, s.end)
+            print("no_speech_prob: ", s.no_speech_prob)
+            if start >= end:
+                continue
+            if s.no_speech_prob > self.no_speech_thresh:
+                continue
+
+            self.transcript.append(self.format_segment(start, end, text_))
+            offset = min(duration, s.end)
 
         self.current_out += segments[-1].text
         last_segment = self.format_segment(

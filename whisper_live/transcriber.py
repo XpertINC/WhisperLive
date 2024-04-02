@@ -148,7 +148,7 @@ class WhisperModel:
             self.hf_tokenizer = tokenizers.Tokenizer.from_pretrained(
                 "openai/whisper-tiny" + ("" if self.model.is_multilingual else ".en")
             )
-
+        print(">>>>> self.hf_tokenizer: ", self.hf_tokenizer)
         self.feat_kwargs = self._get_feature_kwargs(model_path)
         self.feature_extractor = FeatureExtractor(**self.feat_kwargs)
         self.num_samples_per_token = self.feature_extractor.hop_length * 2
