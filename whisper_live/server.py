@@ -711,7 +711,13 @@ class ServeClientFasterWhisper(ServeClientBase):
         self.task = task
         self.initial_prompt = initial_prompt
 
+<<<<<<< HEAD
         """
+=======
+        """"
+            https://github.com/snakers4/silero-vad
+            
+>>>>>>> d0f14e0452218eb1c7aa4362d99cb778de3b62a9
             VadOptions() Default 값
                 threshold: float = 0.5
                 min_speech_duration_ms: int = 250
