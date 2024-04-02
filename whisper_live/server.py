@@ -710,6 +710,27 @@ class ServeClientFasterWhisper(ServeClientBase):
         self.language = "en" if self.model_size_or_path.endswith("en") else language
         self.task = task
         self.initial_prompt = initial_prompt
+
+        """"
+            VadOptions() Default 값
+                threshold: float = 0.5
+                min_speech_duration_ms: int = 250
+                max_speech_duration_s: float = float("inf")
+                min_silence_duration_ms: int = 2000
+                window_size_samples: int = 1024
+                speech_pad_ms: int = 400
+
+            VadOptions 클래스는 음성 활동 감지(Voice Activity Detection, VAD) 처리를 위한 설정 옵션을 정의합니다. 다음은 각 파라미터의 설명입니다:
+
+            threshold: 음성 임계값입니다. Silero VAD는 각 오디오 청크에 대해 음성 확률을 출력하며, 이 값이 임계값보다 높으면 해당 청크를 음성으로 간주합니다. 데이터셋별로 조정할 수 있지만, 대부분의 경우 0.5가 합리적인 기본값입니다.
+            min_speech_duration_ms: 최소 음성 지속 시간으로, 이보다 짧은 최종 음성 청크는 제거됩니다. 이 값은 밀리초(ms) 단위입니다.
+            max_speech_duration_s: 최대 음성 지속 시간으로, 이보다 긴 음성 청크는 마지막으로 100ms 이상 지속되는 침묵 시점에서 분할됩니다. 만약 해당하는 침묵이 없다면, max_speech_duration_s 직전에 강제로 분할됩니다. 이 값은 초(s) 단위입니다.
+            min_silence_duration_ms: 최소 침묵 지속 시간으로, 각 음성 청크의 끝에서 이 시간만큼 기다린 후에 청크를 분리합니다. 이 값도 밀리초(ms) 단위입니다.
+            window_size_samples: 윈도우 크기 샘플로, Silero VAD 모델에 입력되는 오디오 청크의 크기입니다. Silero VAD 모델은 16000 샘플 비율로 512, 1024, 1536 샘플 크기를 사용하여 훈련되었습니다. 이외의 값은 모델 성능에 영향을 줄 수 있습니다.
+            speech_pad_ms: 음성 패딩 시간으로, 최종 음성 청크의 양쪽에 추가되는 시간입니다. 이 값은 밀리초(ms) 단위로 주어집니다.
+
+            이러한 파라미터들은 Silero VAD 모델을 사용하여 오디오 데이터를 음성 청크로 분할할 때 사용됩니다. 사용자는 이 옵션들을 조정하여 VAD 처리의 성능을 최적화할 수 있습니다.
+        """
         self.vad_parameters = vad_parameters or {"threshold": 0.5}
         self.no_speech_thresh = 0.45
 
