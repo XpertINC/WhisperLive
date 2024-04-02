@@ -30,7 +30,7 @@ class Word(NamedTuple):
     end: float
     word: str
     probability: float
-
+    
 
 class Segment(NamedTuple):
     id: int
@@ -298,9 +298,9 @@ class WhisperModel:
         duration = audio.shape[0] / sampling_rate
         duration_after_vad = duration
 
-        self.logger.info(
-            "Processing audio with duration %s", format_timestamp(duration)
-        )
+        # self.logger.info(
+        #     "Processing audio with duration %s", format_timestamp(duration)
+        # )
 
         if vad_filter:
             if vad_parameters is None:
@@ -311,10 +311,10 @@ class WhisperModel:
             audio = collect_chunks(audio, speech_chunks)
             duration_after_vad = audio.shape[0] / sampling_rate
 
-            self.logger.info(
-                "VAD filter removed %s of audio",
-                format_timestamp(duration - duration_after_vad),
-            )
+            # self.logger.info(
+            #     "VAD filter removed %s of audio",
+            #     format_timestamp(duration - duration_after_vad),
+            # )
 
             if self.logger.isEnabledFor(logging.DEBUG):
                 self.logger.debug(

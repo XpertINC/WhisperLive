@@ -777,7 +777,8 @@ class ServeClientFasterWhisper(ServeClientBase):
             logging.info(f"Detected language {self.language} with probability {info.language_probability}")
             self.websocket.send(json.dumps(
                 {"uid": self.client_uid, "language": self.language, "language_prob": info.language_probability}))
-
+    
+    # TODO: whisper transcribe() 호출
     def transcribe_audio(self, input_sample):
         """
         Transcribes the provided audio sample using the configured transcriber instance.
