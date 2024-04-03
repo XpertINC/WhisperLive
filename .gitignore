@@ -1,2 +1,3 @@
 whisper-venv
 *.pyc
+__pycache__

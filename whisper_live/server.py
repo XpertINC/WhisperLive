@@ -14,6 +14,7 @@ try:
     from whisper_live.transcriber_tensorrt import WhisperTRTLLM
 except Exception:
     pass
+from whisper_live.settings import whisper_parameters
 
 logging.basicConfig(level=logging.INFO)
 
@@ -818,15 +819,12 @@ class ServeClientFasterWhisper(ServeClientBase):
             depends on the implementation of the `transcriber.transcribe` method but typically
             includes the transcribed text.
         """
+        # TODO: 다음에서 파라미터를 설정할 수 있음
         result, info = self.transcriber.transcribe(
             input_sample,
-            initial_prompt=self.initial_prompt,
+            **whisper_parameters,
             language=self.language,
-            task=self.task,
-            vad_filter=self.use_vad,
-            vad_parameters=self.vad_parameters if self.use_vad else None,
-            word_timestamps=True,
-            hallucination_silence_threshold=1)
+        )
         # print(f"result: {result}")
 
         if self.language is None and info is not None:
