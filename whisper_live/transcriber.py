@@ -142,6 +142,7 @@ class WhisperModel:
         )
 
         tokenizer_file = os.path.join(model_path, "tokenizer.json")
+
         if os.path.isfile(tokenizer_file):
             self.hf_tokenizer = tokenizers.Tokenizer.from_file(tokenizer_file)
         else:
@@ -726,29 +727,6 @@ class WhisperModel:
                 all_tokens.extend(tokens)
                 idx += 1
 
-                """
-
-                원본에는 아래처럼 return 하고 완료.
-
-                yield Segment(
-                    id=idx,
-                    seek=seek,
-                    start=segment["start"],
-                    end=segment["end"],
-                    text=text,
-                    tokens=tokens,
-                    temperature=temperature,
-                    avg_logprob=avg_logprob,
-                    compression_ratio=compression_ratio,
-                    no_speech_prob=result.no_speech_prob,
-                    words=(
-                        [Word(**word) for word in segment["words"]]
-                        if options.word_timestamps
-                        else None
-                    ),
-                )
-                """
-
                 all_segments.append(Segment(
                     id=idx,
                     seek=seek,
@@ -779,10 +757,6 @@ class WhisperModel:
                     )
 
                 prompt_reset_since = len(all_tokens)
-
-        """
-            원본에는 아래 return 이 존재하지 않는다.
-        """        
         return all_segments
 
     def encode(self, features: np.ndarray) -> ctranslate2.StorageView:

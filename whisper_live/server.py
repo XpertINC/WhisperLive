@@ -711,13 +711,9 @@ class ServeClientFasterWhisper(ServeClientBase):
         self.task = task
         self.initial_prompt = initial_prompt
 
-<<<<<<< HEAD
-        """
-=======
         """"
             https://github.com/snakers4/silero-vad
             
->>>>>>> d0f14e0452218eb1c7aa4362d99cb778de3b62a9
             VadOptions() Default 값
                 threshold: float = 0.5
                 min_speech_duration_ms: int = 250
@@ -972,35 +968,21 @@ class ServeClientFasterWhisper(ServeClientBase):
         offset = None
         self.current_out = ''
         # process complete segments
-        # TODO: segments가 다시 reset 될 때, 왜 no_speech_prob 적용하지 않는지?
-        # if len(segments) > 1:
-        #     for i, s in enumerate(segments[:-1]):
-        #         print("segment: ", s)
-        #         text_ = s.text
-        #         self.text.append(text_)
-        #         start, end = self.timestamp_offset + s.start, self.timestamp_offset + min(duration, s.end)
+        if len(segments) > 1:
+            for i, s in enumerate(segments[:-1]):
+                print("segment: ", s)
+                text_ = s.text
+                self.text.append(text_)
+                start, end = self.timestamp_offset + s.start, self.timestamp_offset + min(duration, s.end)
 
-        #         if start >= end:
-        #             continue
-        #         if s.no_speech_prob > self.no_speech_thresh:
-        #             continue
+                if start >= end:
+                    continue
+                if s.no_speech_prob > self.no_speech_thresh:
+                    continue
 
-        #         self.transcript.append(self.format_segment(start, end, text_))
-        #         offset = min(duration, s.end)
+                self.transcript.append(self.format_segment(start, end, text_))
+                offset = min(duration, s.end)
 
-        print("segments: ", segments[:-1])
-        for i, s in enumerate(segments[:-1]):
-            text_ = s.text
-            self.text.append(text_)
-            start, end = self.timestamp_offset + s.start, self.timestamp_offset + min(duration, s.end)
-            print("no_speech_prob: ", s.no_speech_prob)
-            if start >= end:
-                continue
-            if s.no_speech_prob > self.no_speech_thresh:
-                continue
-
-            self.transcript.append(self.format_segment(start, end, text_))
-            offset = min(duration, s.end)
 
         self.current_out += segments[-1].text
         last_segment = self.format_segment(
