@@ -4,6 +4,7 @@ from faster_whisper.vad import VadOptions
 
 
 # 다음을 수정하여 Whisper Transcriber의 설정을 변경할 수 있습니다.
+whisper_model = "large-v3"
 whisper_parameters = {
     "language": "ko",
     "task": "transcribe",

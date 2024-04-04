@@ -10,7 +10,7 @@ from websockets.sync.server import serve
 from websockets.exceptions import ConnectionClosed
 from whisper_live.vad import VoiceActivityDetector
 from whisper_live.transcriber import WhisperModel
-from whisper_live.settings import whisper_parameters
+from whisper_live.settings import whisper_parameters, whisper_model
 
 try:
     from whisper_live.transcriber_tensorrt import WhisperTRTLLM
@@ -21,7 +21,7 @@ logging.basicConfig(level=logging.INFO)
 
 
 class ClientManager:
-    def __init__(self, max_clients=4, max_connection_time=600):
+    def __init__(self, max_clients=8, max_connection_time=1800):
         """
         Initializes the ClientManager with specified limits on client connections and connection durations.
 
@@ -175,6 +175,7 @@ class TranscriptionServer:
             ):
                 logging.info(f"Using custom model {faster_whisper_custom_model_path}")
                 options["model"] = faster_whisper_custom_model_path
+            print(f"options: {options}")
             client = ServeClientFasterWhisper(
                 websocket,
                 language=options["language"],
@@ -799,7 +800,7 @@ class ServeClientFasterWhisper(ServeClientBase):
             return
 
         self.transcriber = WhisperModel(
-            self.model_size_or_path,
+            model_size_or_path=whisper_model,
             device=device,
             compute_type="int8" if device == "cpu" else "float16",
             local_files_only=False,
@@ -883,6 +884,7 @@ class ServeClientFasterWhisper(ServeClientBase):
             depends on the implementation of the `transcriber.transcribe` method but typically
             includes the transcribed text.
         """
+        print(">>>>> input_sample: ", input_sample.shape)
         result, info = self.transcriber.transcribe(
             input_sample,
             **whisper_parameters,
@@ -932,6 +934,7 @@ class ServeClientFasterWhisper(ServeClientBase):
             self.t_start = None
             last_segment = self.update_segments(result, duration)
             segments = self.prepare_segments(last_segment)
+            logging.info(f"Transcription: {last_segment}")
         else:
             # show previous output if there is pause i.e. no output from whisper
             segments = self.get_previous_output()
