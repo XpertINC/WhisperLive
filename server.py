@@ -10,7 +10,7 @@ from websockets.sync.server import serve
 from websockets.exceptions import ConnectionClosed
 from whisper_live.vad import VoiceActivityDetector
 from whisper_live.transcriber import WhisperModel
-from whisper_live.settings import whisper_parameters
+from whisper_live.settings import ManagerSettings
 
 try:
     from whisper_live.transcriber_tensorrt import WhisperTRTLLM
@@ -21,7 +21,11 @@ logging.basicConfig(level=logging.INFO)
 
 
 class ClientManager:
-    def __init__(self, max_clients=4, max_connection_time=600):
+    def __init__(
+        self,
+        max_clients=ManagerSettings.MAX_CLIENTS.value,
+        max_connection_time=ManagerSettings.MAX_CONNECTION_TIME.value,
+    ):
         """
         Initializes the ClientManager with specified limits on client connections and connection durations.
 
@@ -29,6 +33,11 @@ class ClientManager:
             max_clients (int, optional): The maximum number of simultaneous client connections allowed. Defaults to 4.
             max_connection_time (int, optional): The maximum duration (in seconds) a client can stay connected. Defaults
                                                  to 600 seconds (10 minutes).
+
+        클라이언트 연결과 연결 지속 시간에 대한 지정된 제한을 가지고 ClientManager를 초기화합니다.
+        Args:
+            max_clients (int, 선택적): 동시에 허용되는 최대 클라이언트 연결 수. 기본값은 4입니다.
+            max_connection_time (int, 선택적): 클라이언트가 연결된 상태로 유지될 수 있는 최대 기간(초 단위). 기본값은 600초(10분)입니다.
         """
         self.clients = {}
         self.start_times = {}
@@ -214,6 +223,7 @@ class TranscriptionServer:
         try:
             logging.info("New client connected")
             options = websocket.recv()
+            print(options)
             options = json.loads(options)
             self.use_vad = options.get("use_vad")
             if self.client_manager.is_server_full(websocket, options):
@@ -443,6 +453,19 @@ class ServeClientBase(object):
         Args:
             frame_np (numpy.ndarray): The audio frame data as a NumPy array.
 
+        진행 중인 오디오 스트림 버퍼에 오디오 프레임을 추가합니다.
+
+        이 방법은 오디오 스트림 버퍼를 유지 관리하여 지속적인 추가를 허용합니다.
+        수신된 오디오 프레임의 수입니다. 또한 버퍼가 지정된 크기를 초과하지 않도록 보장합니다.
+        과도한 메모리 사용을 방지합니다.
+
+        버퍼 크기가 임계값(오디오 데이터의 45초)을 초과하면 가장 오래된 30초를 삭제합니다.
+        합리적인 버퍼 크기를 유지하기 위해 오디오 데이터를 저장합니다. 버퍼가 비어 있으면 제공된 값으로 초기화합니다.
+        오디오 프레임. 오디오 스트림 버퍼는 전사를 위한 오디오 데이터의 실시간 처리에 사용됩니다.
+
+        인수:
+            Frame_np (numpy.ndarray): NumPy 배열로서의 오디오 프레임 데이터입니다.
+
         """
         self.lock.acquire()
         if self.frames_np is not None and self.frames_np.shape[0] > 45 * self.RATE:
@@ -508,6 +531,20 @@ class ServeClientBase(object):
 
         Returns:
             list: A list of transcribed text segments to be sent to the client.
+
+        클라이언트에 전송할 변환된 텍스트의 세그먼트를 준비합니다.
+
+        이 방법은 변환된 텍스트의 최근 세그먼트를 컴파일하여 다음과 같은 작업만 수행합니다
+        가장 최근 세그먼트의 지정된 수가 포함됩니다. 또한 가장 많이 추가됩니다
+        제공되는 경우 텍스트의 최근 세그먼트(가능성 때문에 불완전한 것으로 간주됨)
+        마지막 단어가 오디오 청크에서 잘린 것입니다.
+
+        Args:
+            last_segment(str, 선택사항): 추가할 가장 최근의 전사된 텍스트 세그먼트
+                                          세그먼트 목록에 기본값은 없음입니다.
+
+        반환:
+            list: 클라이언트에 전송할 텍스트 세그먼트 목록입니다.
         """
         segments = []
         if len(self.transcript) >= self.send_last_n_segments:
@@ -577,6 +614,7 @@ class ServeClientBase(object):
         self.exit = True
 
 
+# TODO: 아직 사용하지 않음
 class ServeClientTensorRT(ServeClientBase):
     def __init__(
         self,
@@ -662,8 +700,10 @@ class ServeClientTensorRT(ServeClientBase):
                                 of the possibility of word being truncated.
             duration (float): Duration of the transcribed audio chunk.
         """
+        # 다음을 주석처리함
         segments = self.prepare_segments({"text": last_segment})
         self.send_transcription_to_client(segments)
+        # self.send_transcription_to_client(last_segment)
         if self.eos:
             self.update_timestamp_offset(last_segment, duration)
 
@@ -769,6 +809,20 @@ class ServeClientFasterWhisper(ServeClientBase):
             client_uid (str, optional): A unique identifier for the client. Defaults to None.
             model (str, optional): The whisper model size. Defaults to 'small.en'
             initial_prompt (str, optional): Prompt for whisper inference. Defaults to None.
+
+        ServeClient 인스턴스를 초기화합니다.
+        Whisper 모델은 클라이언트의 언어 및 장치 가용성을 기반으로 초기화됩니다.
+        전사 스레드는 초기화 시 시작됩니다. "SERVER_READY" 메시지가 전송됩니다.
+        클라이언트에게 서버가 준비되었음을 나타냅니다.
+
+        인수:
+            websocket(WebSocket): 클라이언트에 대한 WebSocket 연결입니다.
+            task (str, 선택 사항): 작업 유형(예: "transcribe") 기본값은 "기록"입니다.
+            device (str, 선택 사항): Whisper의 장치 유형, "cuda" 또는 "cpu"입니다. 기본값은 없음입니다.
+            언어(str, 선택사항): 전사를 위한 언어입니다. 기본값은 없음입니다.
+            client_uid(str, 선택 사항): 클라이언트의 고유 식별자입니다. 기본값은 없음입니다.
+            model (str, 선택 사항): 속삭임 모델 크기입니다. 기본값은 'small.en'입니다.
+            initial_prompt(str, 선택 사항): 속삭임 추론을 위한 프롬프트입니다. 기본값은 없음입니다.
         """
         super().__init__(client_uid, websocket)
         self.model_sizes = [
@@ -882,10 +936,27 @@ class ServeClientFasterWhisper(ServeClientBase):
             The transcription result from the transcriber. The exact format of this result
             depends on the implementation of the `transcriber.transcribe` method but typically
             includes the transcribed text.
+
+        구성된 전사기 인스턴스를 사용하여 제공된 오디오 샘플을 전사합니다.
+
+        언어가 설정되지 않은 경우 전사 정보를 기반으로 세션의 언어를 업데이트합니다.
+
+        인수:
+            input_sample (np.array): 기록할 오디오 청크입니다. 이것은 NumPy여야 합니다.
+                                    오디오 데이터를 나타내는 배열입니다.
+
+        보고:
+            전사자의 전사 결과입니다. 이 결과의 정확한 형식
+            `transcriber.transcribe` 메소드의 구현에 따라 다르지만 일반적으로
+            전사된 텍스트를 포함합니다.
         """
         result, info = self.transcriber.transcribe(
             input_sample,
-            **whisper_parameters,
+            initial_prompt=self.initial_prompt,
+            language=self.language,
+            task=self.task,
+            vad_filter=self.use_vad,
+            vad_parameters=self.vad_parameters if self.use_vad else None,
         )
 
         if self.language is None and info is not None:
@@ -937,7 +1008,9 @@ class ServeClientFasterWhisper(ServeClientBase):
             segments = self.get_previous_output()
 
         if len(segments):
-            self.send_transcription_to_client(segments)
+            # print(">>>>> segments: ", segments)
+            print(">>>>> last_segment: ", segments)
+            self.send_transcription_to_client([segments])
 
     def speech_to_text(self):
         """
@@ -970,7 +1043,6 @@ class ServeClientFasterWhisper(ServeClientBase):
             if duration < 1.0:
                 continue
             try:
-                # print(">>>>> duration: ", duration)
                 input_sample = input_bytes.copy()
                 result = self.transcribe_audio(input_sample)
 

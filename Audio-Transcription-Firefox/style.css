@@ -6,12 +6,37 @@
   border-bottom: 2px solid darkred;
 }
 
+@font-face {
+  font-family: "NanumGothicBold";
+  src: url("NanumGothicBold.otf") format("opentype");
+}
+@font-face {
+  font-family: "NanumGothicExtraBold";
+  src: url("NanumGothicExtraBold.otf") format("opentype");
+}
 .header-title {
   padding: 0 5px;
 }
 
+body {
+  font-family: "NanumGothicBold", sans-serif;
+}
 h1 {
+  font-family: "NanumGothicExtraBold", sans-serif;
   font-size: 36px;
+}
+
+.button {
+  padding: 10px;
+  border: 2px solid darkred;
+  cursor: pointer;
+  white-space: nowrap;
+  width: 150px;
+  border-radius: 5px;
+  text-align: center; /* 이 부분을 추가합니다 */
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 img {
