@@ -884,7 +884,9 @@ class ServeClientFasterWhisper(ServeClientBase):
             depends on the implementation of the `transcriber.transcribe` method but typically
             includes the transcribed text.
         """
-        print(">>>>> input_sample: ", input_sample.shape)
+        # input_sample_sec = input_sample.shape[0] / 16000
+        # logging.info(f">>>>> input_sample: {input_sample_sec}")
+        # logging.info(f">>>>> input_sample: {input_sample.shape}")
         result, info = self.transcriber.transcribe(
             input_sample,
             **whisper_parameters,
@@ -1087,5 +1089,7 @@ class ServeClientFasterWhisper(ServeClientBase):
         # update offset
         if offset is not None:
             self.timestamp_offset += offset
+            # logging.info(f">>>>> timestamp_offset: {self.timestamp_offset}")
+            # logging.info(f">>>>> Offset: {offset}")
 
         return last_segment

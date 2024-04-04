@@ -30,7 +30,7 @@ class Word(NamedTuple):
     end: float
     word: str
     probability: float
-    
+
 
 class Segment(NamedTuple):
     id: int
@@ -122,7 +122,6 @@ class WhisperModel:
             local cached file if it exists.
         """
         self.logger = get_logger()
-
         if os.path.isdir(model_size_or_path):
             model_path = model_size_or_path
         else:
@@ -131,7 +130,7 @@ class WhisperModel:
                 local_files_only=local_files_only,
                 cache_dir=download_root,
             )
-
+        logging.info(f"model_path: {model_path}")
         self.model = ctranslate2.models.Whisper(
             model_path,
             device=device,
@@ -183,7 +182,7 @@ class WhisperModel:
 
         return config
 
-    def transcribe(                                                         # noqa: C901
+    def transcribe(  # noqa: C901
         self,
         audio: Union[str, BinaryIO, np.ndarray],
         language: Optional[str] = None,
@@ -726,23 +725,25 @@ class WhisperModel:
                 all_tokens.extend(tokens)
                 idx += 1
 
-                all_segments.append(Segment(
-                    id=idx,
-                    seek=seek,
-                    start=segment["start"],
-                    end=segment["end"],
-                    text=text,
-                    tokens=tokens,
-                    temperature=temperature,
-                    avg_logprob=avg_logprob,
-                    compression_ratio=compression_ratio,
-                    no_speech_prob=result.no_speech_prob,
-                    words=(
-                        [Word(**word) for word in segment["words"]]
-                        if options.word_timestamps
-                        else None
-                    ),
-                ))
+                all_segments.append(
+                    Segment(
+                        id=idx,
+                        seek=seek,
+                        start=segment["start"],
+                        end=segment["end"],
+                        text=text,
+                        tokens=tokens,
+                        temperature=temperature,
+                        avg_logprob=avg_logprob,
+                        compression_ratio=compression_ratio,
+                        no_speech_prob=result.no_speech_prob,
+                        words=(
+                            [Word(**word) for word in segment["words"]]
+                            if options.word_timestamps
+                            else None
+                        ),
+                    )
+                )
 
             if (
                 not options.condition_on_previous_text
@@ -926,7 +927,7 @@ class WhisperModel:
 
         return prompt
 
-    def add_word_timestamps(                                                    # noqa: C901
+    def add_word_timestamps(  # noqa: C901
         self,
         segments: List[dict],
         tokenizer: Tokenizer,
