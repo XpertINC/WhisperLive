@@ -14,12 +14,12 @@ whisper_parameters = {
     "patience": 1,
     "no_speech_threshold": 0.6,
     "without_timestamps": False,
-    "word_timestamps": True,
+    "word_timestamps": False,
     "vad_filter": True,
     "vad_parameters": {"threshold": 0.6},
     "chunk_length": None,
     "clip_timestamps": "0",
-    "hallucination_silence_threshold": 1.0,
+    # "hallucination_silence_threshold": 1.0,
 }
 
 if not whisper_parameters.get("vad_filter"):
