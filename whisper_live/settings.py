@@ -17,12 +17,14 @@ whisper_parameters = {
     "word_timestamps": False,
     "vad_filter": True,
     "vad_parameters": {
-        "threshold": 0.45,
-        "min_speech_duration_ms": 250,
-        "max_speech_duration_s": float("inf"),
-        "min_silence_duration_ms": 2000,
-        "window_size_samples": 1024,
-        "speech_pad_ms": 400,
+        "threshold": 0.45,  # threshold: 말하기 임계값입니다. Silero VAD는 각 오디오 청크에 대한 말하기 확률을 출력하며, 이 값이 임계값을 초과하면 SPEECH(음성)로 간주됩니다. 각 데이터셋에 대해 이 매개변수를 별도로 조정하는 것이 좋지만, 대부분의 데이터셋에 대해 "게으른" 0.5가 꽤 좋은 성능을 보입니다.
+        "min_speech_duration_ms": 250,  # 최소 말하기 지속 시간(밀리초)입니다. min_speech_duration_ms보다 짧은 최종 음성 청크는 제거됩니다.
+        "max_speech_duration_s": float(
+            "inf"
+        ),  # 말하기 청크의 최대 지속 시간(초)입니다. max_speech_duration_s보다 긴 청크는 100ms 이상 지속되는 마지막 침묵의 타임스탬프에서 분할되어 공격적인 절단을 방지합니다. 그렇지 않으면 max_speech_duration_s 직전에 공격적으로 분할됩니다.
+        "min_silence_duration_ms": 2000,  # 각 말하기 청크의 끝에서 min_silence_duration_ms 동안 기다린 후 분리합니다.
+        "window_size_samples": 1024,  # window_size_samples 크기의 오디오 청크가 silero VAD 모델에 공급됩니다. 경고! Silero VAD 모델은 16000 샘플 레이트에 대해 512, 1024, 1536 샘플을 사용하여 훈련되었습니다. 이 값들 외의 다른 값은 모델 성능에 영향을 줄 수 있습니다!!
+        "speech_pad_ms": 400,  # 최종 말하기 청크는 각면에 speech_pad_ms만큼 패딩됩니다.
     },
     "chunk_length": None,
     "clip_timestamps": "0",
