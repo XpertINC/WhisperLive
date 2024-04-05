@@ -886,7 +886,7 @@ class ServeClientFasterWhisper(ServeClientBase):
         """
         # input_sample_sec = input_sample.shape[0] / 16000
         # logging.info(f">>>>> input_sample: {input_sample_sec}")
-        logging.info(f">>>>> input_sample: {input_sample.shape}")
+        # logging.info(f">>>>> input_sample: {input_sample.shape}")
         result, info = self.transcriber.transcribe(
             input_sample,
             **whisper_parameters,
