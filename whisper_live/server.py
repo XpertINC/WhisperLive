@@ -979,7 +979,7 @@ class ServeClientFasterWhisper(ServeClientBase):
                 input_sample = input_bytes.copy()
                 result = self.transcribe_audio(input_sample)
 
-                if result is None or self.language is None:
+                if result is None or len(result) == 0 or self.language is None:
                     self.timestamp_offset += duration
                     time.sleep(
                         0.25
