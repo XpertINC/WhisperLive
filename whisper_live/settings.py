@@ -4,7 +4,7 @@ from faster_whisper.vad import VadOptions
 
 
 # 다음을 수정하여 Whisper Transcriber의 설정을 변경할 수 있습니다.
-whisper_model = "large-v3"
+whisper_model = "large-v1"
 # whisper_model = "small"
 whisper_parameters = {
     "language": "ko",
@@ -14,7 +14,7 @@ whisper_parameters = {
     "patience": 1,
     "no_speech_threshold": 0.6,
     "without_timestamps": False,
-    "word_timestamps": False,
+    "word_timestamps": True,
     "vad_filter": True,
     "vad_parameters": {
         "threshold": 0.6,  # threshold: 말하기 임계값입니다. Silero VAD는 각 오디오 청크에 대한 말하기 확률을 출력하며, 이 값이 임계값을 초과하면 SPEECH(음성)로 간주됩니다. 각 데이터셋에 대해 이 매개변수를 별도로 조정하는 것이 좋지만, 대부분의 데이터셋에 대해 "게으른" 0.5가 꽤 좋은 성능을 보입니다.

@@ -175,7 +175,6 @@ class TranscriptionServer:
             ):
                 logging.info(f"Using custom model {faster_whisper_custom_model_path}")
                 options["model"] = faster_whisper_custom_model_path
-            print(f"options: {options}")
             client = ServeClientFasterWhisper(
                 websocket,
                 language=options["language"],
@@ -795,7 +794,7 @@ class ServeClientFasterWhisper(ServeClientBase):
         self.no_speech_thresh = 0.45
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
-
+        logging.info(f"model_size_or_path: {self.model_size_or_path}")
         if self.model_size_or_path is None:
             return
 
