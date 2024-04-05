@@ -936,7 +936,7 @@ class ServeClientFasterWhisper(ServeClientBase):
             self.t_start = None
             last_segment = self.update_segments(result, duration)
             segments = self.prepare_segments(last_segment)
-            # logging.info(f"Transcription: {last_segment}")
+            logging.info(f"Transcription: {last_segment}")
         else:
             # show previous output if there is pause i.e. no output from whisper
             segments = self.get_previous_output()
