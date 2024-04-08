@@ -410,7 +410,9 @@ class ServeClientBase(object):
             3  # add a blank to segment list as a pause(no speech) for 3 seconds
         )
         self.transcript = []
-        self.send_last_n_segments = 10
+        
+        self.send_last_n_segments = 1
+        # self.send_last_n_segments = 10
 
         # text formatting
         self.pick_previous_segments = 2
