@@ -10,11 +10,7 @@ from websockets.sync.server import serve
 from websockets.exceptions import ConnectionClosed
 from whisper_live.vad import VoiceActivityDetector
 from whisper_live.transcriber import WhisperModel
-
-try:
-    from whisper_live.transcriber_tensorrt import WhisperTRTLLM
-except Exception:
-    pass
+from datetime import datetime
 
 logging.basicConfig(level=logging.INFO)
 
@@ -33,6 +29,7 @@ class ClientManager:
         self.start_times = {}
         self.max_clients = max_clients
         self.max_connection_time = max_connection_time
+        logging.info(f"clients: {self.clients}")
 
     def add_client(self, websocket, client):
         """
@@ -139,34 +136,7 @@ class TranscriptionServer:
         websocket,
         options,
         faster_whisper_custom_model_path,
-        whisper_tensorrt_path,
-        trt_multilingual,
     ):
-        if self.backend == "tensorrt":
-            try:
-                client = ServeClientTensorRT(
-                    websocket,
-                    multilingual=trt_multilingual,
-                    language=options["language"],
-                    task=options["task"],
-                    client_uid=options["uid"],
-                    model=whisper_tensorrt_path,
-                )
-                logging.info("Running TensorRT backend.")
-            except Exception as e:
-                logging.error(f"TensorRT-LLM not supported: {e}")
-                self.client_uid = options["uid"]
-                websocket.send(
-                    json.dumps(
-                        {
-                            "uid": self.client_uid,
-                            "status": "WARNING",
-                            "message": "TensorRT-LLM not supported on Server yet. "
-                            "Reverting to available backend: 'faster_whisper'",
-                        }
-                    )
-                )
-                self.backend = "faster_whisper"
 
         if self.backend == "faster_whisper":
             if faster_whisper_custom_model_path is not None and os.path.exists(
@@ -185,7 +155,7 @@ class TranscriptionServer:
                 use_vad=self.use_vad,
             )
             logging.info("Running faster_whisper backend.")
-
+        logging.info(f">>>>> websocket: {websocket}")
         self.client_manager.add_client(websocket, client)
 
     def get_audio_from_websocket(self, websocket):
@@ -207,8 +177,6 @@ class TranscriptionServer:
         self,
         websocket,
         faster_whisper_custom_model_path,
-        whisper_tensorrt_path,
-        trt_multilingual,
     ):
         try:
             logging.info("New client connected")
@@ -219,14 +187,10 @@ class TranscriptionServer:
                 websocket.close()
                 return False  # Indicates that the connection should not continue
 
-            if self.backend == "tensorrt":
-                self.vad_detector = VoiceActivityDetector(frame_rate=self.RATE)
             self.initialize_client(
                 websocket,
                 options,
                 faster_whisper_custom_model_path,
-                whisper_tensorrt_path,
-                trt_multilingual,
             )
             return True
         except json.JSONDecodeError:
@@ -243,17 +207,7 @@ class TranscriptionServer:
         frame_np = self.get_audio_from_websocket(websocket)
         client = self.client_manager.get_client(websocket)
         if frame_np is False:
-            if self.backend == "tensorrt":
-                client.set_eos(True)
             return False
-
-        if self.backend == "tensorrt":
-            voice_active = self.voice_activity(websocket, frame_np)
-            if voice_active:
-                self.no_voice_activity_chunks = 0
-                client.set_eos(False)
-            if self.use_vad and not voice_active:
-                return True
 
         client.add_frames(frame_np)
         return True
@@ -263,8 +217,6 @@ class TranscriptionServer:
         websocket,
         backend="faster_whisper",
         faster_whisper_custom_model_path=None,
-        whisper_tensorrt_path=None,
-        trt_multilingual=False,
     ):
         """
         Receive audio chunks from a client in an infinite loop.
@@ -284,8 +236,6 @@ class TranscriptionServer:
             websocket (WebSocket): The WebSocket connection for the client.
             backend (str): The backend to run the server with.
             faster_whisper_custom_model_path (str): path to custom faster whisper model.
-            whisper_tensorrt_path (str): Required for tensorrt backend.
-            trt_multilingual(bool): Only used for tensorrt, True if multilingual model.
 
         Raises:
             Exception: If there is an error during the audio frame processing.
@@ -294,8 +244,6 @@ class TranscriptionServer:
         if not self.handle_new_connection(
             websocket,
             faster_whisper_custom_model_path,
-            whisper_tensorrt_path,
-            trt_multilingual,
         ):
             return
 
@@ -317,10 +265,8 @@ class TranscriptionServer:
         self,
         host,
         port=9090,
-        backend="tensorrt",
+        backend="faster_whisper",
         faster_whisper_custom_model_path=None,
-        whisper_tensorrt_path=None,
-        trt_multilingual=False,
         ssl_context=None,
     ):
         """
@@ -335,8 +281,6 @@ class TranscriptionServer:
                 self.recv_audio,
                 backend=backend,
                 faster_whisper_custom_model_path=faster_whisper_custom_model_path,
-                whisper_tensorrt_path=whisper_tensorrt_path,
-                trt_multilingual=trt_multilingual,
             ),
             host,
             port,
@@ -578,171 +522,6 @@ class ServeClientBase(object):
         self.exit = True
 
 
-class ServeClientTensorRT(ServeClientBase):
-    def __init__(
-        self,
-        websocket,
-        task="transcribe",
-        multilingual=False,
-        language=None,
-        client_uid=None,
-        model=None,
-    ):
-        """
-        Initialize a ServeClient instance.
-        The Whisper model is initialized based on the client's language and device availability.
-        The transcription thread is started upon initialization. A "SERVER_READY" message is sent
-        to the client to indicate that the server is ready.
-
-        Args:
-            websocket (WebSocket): The WebSocket connection for the client.
-            task (str, optional): The task type, e.g., "transcribe." Defaults to "transcribe".
-            device (str, optional): The device type for Whisper, "cuda" or "cpu". Defaults to None.
-            multilingual (bool, optional): Whether the client supports multilingual transcription. Defaults to False.
-            language (str, optional): The language for transcription. Defaults to None.
-            client_uid (str, optional): A unique identifier for the client. Defaults to None.
-
-        """
-        super().__init__(client_uid, websocket)
-        self.language = language if multilingual else "en"
-        self.task = task
-        self.eos = False
-        self.transcriber = WhisperTRTLLM(
-            model,
-            assets_dir="assets",
-            device="cuda",
-            is_multilingual=multilingual,
-            language=self.language,
-            task=self.task,
-        )
-        self.warmup()
-
-        # threading
-        self.trans_thread = threading.Thread(target=self.speech_to_text)
-        self.trans_thread.start()
-
-        self.websocket.send(
-            json.dumps(
-                {
-                    "uid": self.client_uid,
-                    "message": self.SERVER_READY,
-                    "backend": "tensorrt",
-                }
-            )
-        )
-
-    def warmup(self, warmup_steps=10):
-        """
-        Warmup TensorRT since first few inferences are slow.
-
-        Args:
-            warmup_steps (int): Number of steps to warm up the model for.
-        """
-        logging.info("[INFO:] Warming up TensorRT engine..")
-        mel, _ = self.transcriber.log_mel_spectrogram("assets/jfk.flac")
-        for i in range(warmup_steps):
-            self.transcriber.transcribe(mel)
-
-    def set_eos(self, eos):
-        """
-        Sets the End of Speech (EOS) flag.
-
-        Args:
-            eos (bool): The value to set for the EOS flag.
-        """
-        self.lock.acquire()
-        self.eos = eos
-        self.lock.release()
-
-    def handle_transcription_output(self, last_segment, duration):
-        """
-        Handle the transcription output, updating the transcript and sending data to the client.
-
-        Args:
-            last_segment (str): The last segment from the whisper output which is considered to be incomplete because
-                                of the possibility of word being truncated.
-            duration (float): Duration of the transcribed audio chunk.
-        """
-        segments = self.prepare_segments({"text": last_segment})
-        self.send_transcription_to_client(segments)
-        if self.eos:
-            self.update_timestamp_offset(last_segment, duration)
-
-    def transcribe_audio(self, input_bytes):
-        """
-        Transcribe the audio chunk and send the results to the client.
-
-        Args:
-            input_bytes (np.array): The audio chunk to transcribe.
-        """
-        logging.info(
-            f"[WhisperTensorRT:] Processing audio with duration: {input_bytes.shape[0] / self.RATE}"
-        )
-        mel, duration = self.transcriber.log_mel_spectrogram(input_bytes)
-        last_segment = self.transcriber.transcribe(
-            mel,
-            text_prefix=f"<|startoftranscript|><|{self.language}|><|{self.task}|><|notimestamps|>",
-        )
-        if last_segment:
-            self.handle_transcription_output(last_segment, duration)
-
-    def update_timestamp_offset(self, last_segment, duration):
-        """
-        Update timestamp offset and transcript.
-
-        Args:
-            last_segment (str): Last transcribed audio from the whisper model.
-            duration (float): Duration of the last audio chunk.
-        """
-        if not len(self.transcript):
-            self.transcript.append({"text": last_segment + " "})
-        elif self.transcript[-1]["text"].strip() != last_segment:
-            self.transcript.append({"text": last_segment + " "})
-        self.timestamp_offset += duration
-
-    def speech_to_text(self):
-        """
-        Process an audio stream in an infinite loop, continuously transcribing the speech.
-
-        This method continuously receives audio frames, performs real-time transcription, and sends
-        transcribed segments to the client via a WebSocket connection.
-
-        If the client's language is not detected, it waits for 30 seconds of audio input to make a language prediction.
-        It utilizes the Whisper ASR model to transcribe the audio, continuously processing and streaming results. Segments
-        are sent to the client in real-time, and a history of segments is maintained to provide context.Pauses in speech
-        (no output from Whisper) are handled by showing the previous output for a set duration. A blank segment is added if
-        there is no speech for a specified duration to indicate a pause.
-
-        Raises:
-            Exception: If there is an issue with audio processing or WebSocket communication.
-
-        """
-        while True:
-            if self.exit:
-                logging.info("Exiting speech to text thread")
-                break
-
-            if self.frames_np is None:
-                time.sleep(0.02)  # wait for any audio to arrive
-                continue
-
-            self.clip_audio_if_no_valid_segment()
-
-            input_bytes, duration = self.get_audio_chunk_for_processing()
-            if duration < 0.4:
-                continue
-
-            try:
-                input_sample = input_bytes.copy()
-                logging.info(
-                    f"[WhisperTensorRT:] Processing audio with duration: {duration}"
-                )
-                self.transcribe_audio(input_sample)
-
-            except Exception as e:
-                logging.error(f"[ERROR]: {e}")
-
-
 class ServeClientFasterWhisper(ServeClientBase):
     def __init__(
         self,
@@ -833,15 +612,14 @@ class ServeClientFasterWhisper(ServeClientBase):
         # threading
         self.trans_thread = threading.Thread(target=self.speech_to_text)
         self.trans_thread.start()
-        self.websocket.send(
-            json.dumps(
-                {
-                    "uid": self.client_uid,
-                    "message": self.SERVER_READY,
-                    "backend": "faster_whisper",
-                }
-            )
-        )
+        data = {
+            "uid": self.client_uid,
+            "message": self.SERVER_READY,
+            "time": int(time.time() * 1000),
+            "backend": "faster_whisper",
+        }
+        self.websocket.send(json.dumps(data))
+        logging.info(f">>>>> start data: {data}")
 
     def check_valid_model(self, model_size):
         """

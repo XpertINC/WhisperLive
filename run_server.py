@@ -26,19 +26,6 @@ if __name__ == "__main__":
         help="Custom Faster Whisper Model",
     )
     parser.add_argument(
-        "--trt_model_path",
-        "-trt",
-        type=str,
-        default=None,
-        help="Whisper TensorRT model path",
-    )
-    parser.add_argument(
-        "--trt_multilingual",
-        "-m",
-        action="store_true",
-        help="Boolean only for TensorRT model. True if multilingual.",
-    )
-    parser.add_argument(
         "--ssl",
         "-ssl",
         type=bool,
@@ -46,10 +33,6 @@ if __name__ == "__main__":
         help="Path to cert.pem and key.pem if ssl should be used.",
     )
     args = parser.parse_args()
-
-    if args.backend == "tensorrt":
-        if args.trt_model_path is None:
-            raise ValueError("Please Provide a valid tensorrt model path")
 
     ssl_context = None
     if args.ssl:
@@ -65,7 +48,5 @@ if __name__ == "__main__":
         port=args.port,
         backend=args.backend,
         faster_whisper_custom_model_path=args.faster_whisper_custom_model_path,
-        whisper_tensorrt_path=args.trt_model_path,
-        trt_multilingual=args.trt_multilingual,
         ssl_context=ssl_context,
     )

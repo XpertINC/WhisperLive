@@ -23,6 +23,7 @@ from faster_whisper.vad import (
     collect_chunks,
     get_speech_timestamps,
 )
+import time
 
 
 class Word(NamedTuple):
@@ -131,7 +132,6 @@ class WhisperModel:
                 local_files_only=local_files_only,
                 cache_dir=download_root,
             )
-        logging.info(f">>>>> model path: {model_path}")
         self.model = ctranslate2.models.Whisper(
             model_path,
             device=device,
@@ -594,6 +594,7 @@ class WhisperModel:
                     slices.append(len(tokens))
 
                 last_slice = 0
+                print(">>>>> tokens: ", tokens)
                 for current_slice in slices:
                     sliced_tokens = tokens[last_slice:current_slice]
                     start_timestamp_position = (
@@ -602,13 +603,14 @@ class WhisperModel:
                     end_timestamp_position = (
                         sliced_tokens[-1] - tokenizer.timestamp_begin
                     )
+                    print(">>>>> sliced_tokens[0]: ", sliced_tokens[0])
+                    print(">>>>> sliced_tokens[-1]: ", sliced_tokens[-1])
                     start_time = (
                         time_offset + start_timestamp_position * self.time_precision
                     )
                     end_time = (
                         time_offset + end_timestamp_position * self.time_precision
                     )
-
                     current_segments.append(
                         dict(
                             seek=seek,
