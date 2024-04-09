@@ -410,7 +410,7 @@ class ServeClientBase(object):
             3  # add a blank to segment list as a pause(no speech) for 3 seconds
         )
         self.transcript = []
-        
+
         self.send_last_n_segments = 1
         # self.send_last_n_segments = 10
 
@@ -959,6 +959,7 @@ class ServeClientFasterWhisper(ServeClientBase):
         if len(result):
             self.t_start = None
             last_segment = self.update_segments(result, duration)
+            logging.info(f"Last segment: {last_segment}")
             segments = self.prepare_segments(last_segment)
         else:
             # show previous output if there is pause i.e. no output from whisper
