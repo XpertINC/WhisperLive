@@ -144,6 +144,7 @@ class TranscriptionServer:
             ):
                 logging.info(f"Using custom model {faster_whisper_custom_model_path}")
                 options["model"] = faster_whisper_custom_model_path
+            logging.info(f">>>>> options: {options}")
             client = ServeClientFasterWhisper(
                 websocket,
                 language=options["language"],
@@ -153,6 +154,7 @@ class TranscriptionServer:
                 initial_prompt=options.get("initial_prompt"),
                 vad_parameters=options.get("vad_parameters"),
                 use_vad=self.use_vad,
+                processing_backend=options.get("processing_backend", False),
             )
             logging.info("Running faster_whisper backend.")
         logging.info(f">>>>> websocket: {websocket}")
@@ -183,6 +185,7 @@ class TranscriptionServer:
             options = websocket.recv()
             options = json.loads(options)
             self.use_vad = options.get("use_vad")
+
             if self.client_manager.is_server_full(websocket, options):
                 websocket.close()
                 return False  # Indicates that the connection should not continue
@@ -432,8 +435,22 @@ class ServeClientBase(object):
             tuple: A tuple containing:
                 - input_bytes (np.ndarray): The next chunk of audio data to be processed.
                 - duration (float): The duration of the audio chunk in seconds.
+
+        현재 오프셋에 기반하여 처리할 다음 오디오 데이터 청크를 검색합니다.
+
+        이는 현재 타임스탬프 오프셋과 프레임의 오프셋 사이의 차이를 계산하여,
+        오디오 샘플 비율(RATE)에 따라 스케일링되어 다음에 처리해야 할 오디오 데이터의 부분을 결정합니다.
+        그리고 이 오디오 데이터 청크와 그 지속시간을 초 단위로 반환합니다.
+
+        반환값:
+        tuple: 다음과 같은 요소를 포함하는 튜플:
+        - input_bytes (np.ndarray): 처리할 다음 청크의 오디오 데이터입니다.
+        - duration (float): 오디오 청크의 지속시간(초 단위)
         """
         samples_take = max(0, (self.timestamp_offset - self.frames_offset) * self.RATE)
+        # logging.info(
+        #     f">>>>>> 처리되는 offset: {self.timestamp_offset - self.frames_offset}"
+        # )
         input_bytes = self.frames_np[int(samples_take) :].copy()
         duration = input_bytes.shape[0] / self.RATE
         return input_bytes, duration
@@ -534,6 +551,7 @@ class ServeClientFasterWhisper(ServeClientBase):
         initial_prompt=None,
         vad_parameters=None,
         use_vad=True,
+        processing_backend=False,
     ):
         """
         Initialize a ServeClient instance.
@@ -570,6 +588,9 @@ class ServeClientFasterWhisper(ServeClientBase):
         self.language = "en" if self.model_size_or_path.endswith("en") else language
         self.task = task
         self.initial_prompt = initial_prompt
+        if processing_backend:
+            # 자막 검색을 위한 전처리 함수 호출
+            pass
 
         """"
             https://github.com/snakers4/silero-vad
@@ -612,10 +633,11 @@ class ServeClientFasterWhisper(ServeClientBase):
         # threading
         self.trans_thread = threading.Thread(target=self.speech_to_text)
         self.trans_thread.start()
+        self.start_time = int(time.time() * 1000)
         data = {
             "uid": self.client_uid,
             "message": self.SERVER_READY,
-            "time": int(time.time() * 1000),
+            "time": self.start_time,
             "backend": "faster_whisper",
         }
         self.websocket.send(json.dumps(data))
@@ -786,6 +808,7 @@ class ServeClientFasterWhisper(ServeClientBase):
                         0.25
                     )  # wait for voice activity, result is None when no voice activity
                     continue
+                # logging.info(f"result: {result} ")
                 self.handle_transcription_output(result, duration)
 
             except Exception as e:
@@ -807,8 +830,8 @@ class ServeClientFasterWhisper(ServeClientBase):
                 of the transcription.
         """
         return {
-            "start": "{:.3f}".format(start),
-            "end": "{:.3f}".format(end),
+            "start": self.start_time + int(start * 1000),
+            "end": self.start_time + int(end * 1000),
             "text": text,
         }
 
@@ -855,7 +878,7 @@ class ServeClientFasterWhisper(ServeClientBase):
 
         self.current_out += segments[-1].text
         last_segment = self.format_segment(
-            self.timestamp_offset + segments[-1].start,
+            +(self.timestamp_offset + segments[-1].start),
             self.timestamp_offset + min(duration, segments[-1].end),
             self.current_out,
         )
@@ -892,3 +915,6 @@ class ServeClientFasterWhisper(ServeClientBase):
             self.timestamp_offset += offset
 
         return last_segment
+
+    def convert_ms(self, timestamp):
+        pass
