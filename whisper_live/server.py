@@ -366,6 +366,7 @@ class ServeClientBase(object):
 
         # threading
         self.lock = threading.Lock()
+        self.start_time = None
 
     def speech_to_text(self):
         raise NotImplementedError
@@ -402,6 +403,8 @@ class ServeClientBase(object):
             if self.timestamp_offset < self.frames_offset:
                 self.timestamp_offset = self.frames_offset
         if self.frames_np is None:
+            self.start_time = int(time.time() * 1000)
+            logging.info(f">>>>> start time: {self.start_time}")
             self.frames_np = frame_np.copy()
         else:
             self.frames_np = np.concatenate((self.frames_np, frame_np), axis=0)
@@ -615,7 +618,7 @@ class ServeClientFasterWhisper(ServeClientBase):
             이러한 파라미터들은 Silero VAD 모델을 사용하여 오디오 데이터를 음성 청크로 분할할 때 사용됩니다. 사용자는 이 옵션들을 조정하여 VAD 처리의 성능을 최적화할 수 있습니다.
         """
         self.vad_parameters = vad_parameters or {"threshold": 0.5}
-        self.no_speech_thresh = 0.45
+        self.no_speech_thresh = 0.3
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -633,7 +636,6 @@ class ServeClientFasterWhisper(ServeClientBase):
         # threading
         self.trans_thread = threading.Thread(target=self.speech_to_text)
         self.trans_thread.start()
-        self.start_time = int(time.time() * 1000)
         data = {
             "uid": self.client_uid,
             "message": self.SERVER_READY,
@@ -871,6 +873,7 @@ class ServeClientFasterWhisper(ServeClientBase):
                 if start >= end:
                     continue
                 if s.no_speech_prob > self.no_speech_thresh:
+
                     continue
 
                 self.transcript.append(self.format_segment(start, end, text_))
@@ -916,5 +919,10 @@ class ServeClientFasterWhisper(ServeClientBase):
 
         return last_segment
 
-    def convert_ms(self, timestamp):
+    def preprocessing_subtitle(self):
+        # 자막 임포트
         pass
+
+    class Subtitle:
+        def __init__(self):
+            self.subtitle = []

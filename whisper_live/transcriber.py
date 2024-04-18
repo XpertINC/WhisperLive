@@ -204,7 +204,7 @@ class WhisperModel:
         ],
         compression_ratio_threshold: Optional[float] = 2.4,
         log_prob_threshold: Optional[float] = -1.0,
-        no_speech_threshold: Optional[float] = 0.6,
+        no_speech_threshold: Optional[float] = 0.3,  # TODO: 0.45 수정
         condition_on_previous_text: bool = True,
         prompt_reset_on_temperature: float = 0.5,
         initial_prompt: Optional[Union[str, Iterable[int]]] = None,
@@ -526,6 +526,7 @@ class WhisperModel:
 
             if options.no_speech_threshold is not None:
                 # no voice activity check
+                # logging.info(f"result.no_speech_prob: {result}")
                 should_skip = result.no_speech_prob > options.no_speech_threshold
 
                 if (
