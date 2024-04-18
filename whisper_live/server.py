@@ -29,6 +29,7 @@ class ClientManager:
         self.start_times = {}
         self.max_clients = max_clients
         self.max_connection_time = max_connection_time
+        self.extra_data = {}
         logging.info(f"clients: {self.clients}")
 
     def add_client(self, websocket, client):
@@ -171,9 +172,15 @@ class TranscriptionServer:
             A numpy array containing the audio.
         """
         frame_data = websocket.recv()
+
         if frame_data == b"END_OF_AUDIO":
             return False
-        return np.frombuffer(frame_data, dtype=np.float32)
+        elif isinstance(frame_data, bytes):
+            return np.frombuffer(frame_data, dtype=np.float32)
+        elif isinstance(frame_data, str):
+            return json.loads(frame_data)
+
+        # return np.frombuffer(frame_data, dtype=np.float32)
 
     def handle_new_connection(
         self,
@@ -210,10 +217,14 @@ class TranscriptionServer:
         frame_np = self.get_audio_from_websocket(websocket)
         client = self.client_manager.get_client(websocket)
         if frame_np is False:
-            return False
-
-        client.add_frames(frame_np)
-        return True
+            return "stop"
+        elif isinstance(frame_np, dict):
+            client.extra_data = frame_np
+            logging.info(f">>>>> Extra data: {client.extra_data}")
+            return "extra_data"
+        else:
+            client.add_frames(frame_np)
+            return True
 
     def recv_audio(
         self,
@@ -252,7 +263,7 @@ class TranscriptionServer:
 
         try:
             while not self.client_manager.is_client_timeout(websocket):
-                if not self.process_audio_frames(websocket):
+                if self.process_audio_frames(websocket) == "stop":
                     break
         except ConnectionClosed:
             logging.info("Connection closed by client")
