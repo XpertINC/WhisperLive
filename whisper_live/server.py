@@ -29,7 +29,7 @@ class ClientManager:
         self.start_times = {}
         self.max_clients = max_clients
         self.max_connection_time = max_connection_time
-        self.extra_data = {}
+
         logging.info(f"clients: {self.clients}")
 
     def add_client(self, websocket, client):
@@ -220,7 +220,7 @@ class TranscriptionServer:
             return "stop"
         elif isinstance(frame_np, dict):
             client.extra_data = frame_np
-            logging.info(f">>>>> Extra data: {client.extra_data}")
+            # logging.info(f">>>>> Extra data: {client.extra_data}")
             return "extra_data"
         else:
             client.add_frames(frame_np)
@@ -368,6 +368,7 @@ class ServeClientBase(object):
             3  # add a blank to segment list as a pause(no speech) for 3 seconds
         )
         self.transcript = []
+        self.extra_data = None
 
         self.send_last_n_segments = 1
         # self.send_last_n_segments = 10
@@ -720,9 +721,12 @@ class ServeClientFasterWhisper(ServeClientBase):
             depends on the implementation of the `transcriber.transcribe` method but typically
             includes the transcribed text.
         """
+        logging.info(f">>>>> initial_prompt: {self.extra_data}")
         result, info = self.transcriber.transcribe(
             input_sample,
-            initial_prompt=self.initial_prompt,
+            initial_prompt=(
+                self.extra_data.get("initial_prompt", None) if self.extra_data else None
+            ),
             language=self.language,
             task=self.task,
             vad_filter=self.use_vad,
