@@ -40,6 +40,20 @@ class ClientManager:
             websocket: The websocket associated with the client to add.
             client: The client object to be added and tracked.
         """
+        if torch.cuda.is_available():
+            # 두 개의 GPU에 대한 메모리 요약 출력
+            for device_id in range(torch.cuda.device_count()):
+                torch.cuda.set_device(device_id)  # GPU 선택
+                print(f">>>>> PyTorch CUDA memory summary, device ID {device_id}")
+                print(torch.cuda.memory_summary())  # 메모리 요약 정보 출력
+        else:
+            print("CUDA is not available.")
+
+        logging.info(f"-" * 100)
+        self.clear_gpu_cache()
+        logging.info(
+            f">>>>> EMPTY CACHE GPU MEMORY SUMMARY: {torch.cuda.memory_summary()}"
+        )
         self.clients[websocket] = client
         self.start_times[websocket] = time.time()
 
@@ -122,6 +136,10 @@ class ClientManager:
             )
             return True
         return False
+
+    def clear_gpu_cache(self):
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
 
 class TranscriptionServer:
