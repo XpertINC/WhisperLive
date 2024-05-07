@@ -161,7 +161,9 @@ class TranscriptionServer:
             if faster_whisper_custom_model_path is not None and os.path.exists(
                 faster_whisper_custom_model_path
             ):
-                logging.info(f"Using custom model {faster_whisper_custom_model_path}")
+                logging.info(
+                    f">>>>> Using custom model {faster_whisper_custom_model_path}"
+                )
                 options["model"] = faster_whisper_custom_model_path
             logging.info(f">>>>> options: {options}")
             client = ServeClientFasterWhisper(
@@ -656,10 +658,12 @@ class ServeClientFasterWhisper(ServeClientBase):
             return
 
         self.transcriber = WhisperModel(
+            # self.model_size_or_path,
             self.model_size_or_path,
             device=device,
             compute_type="int8" if device == "cpu" else "float16",
             local_files_only=False,
+            download_root="./models",
         )
         self.use_vad = use_vad
 
@@ -739,7 +743,7 @@ class ServeClientFasterWhisper(ServeClientBase):
             depends on the implementation of the `transcriber.transcribe` method but typically
             includes the transcribed text.
         """
-        logging.info(f">>>>> initial_prompt: {self.extra_data}")
+        # logging.info(f">>>>> initial_prompt: {self.extra_data}")
         result, info = self.transcriber.transcribe(
             input_sample,
             initial_prompt=(

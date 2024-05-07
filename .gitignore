@@ -1,3 +1,4 @@
 whisper-venv
 *.pyc
 __pycache__
+models
