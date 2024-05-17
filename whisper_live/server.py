@@ -149,6 +149,7 @@ class TranscriptionServer:
         self.client_manager = ClientManager()
         self.no_voice_activity_chunks = 0
         self.use_vad = True
+        self.options = None
 
     def initialize_client(
         self,
@@ -156,6 +157,8 @@ class TranscriptionServer:
         options,
         faster_whisper_custom_model_path,
     ):
+
+        self.options = options
 
         if self.backend == "faster_whisper":
             if faster_whisper_custom_model_path is not None and os.path.exists(
@@ -196,7 +199,10 @@ class TranscriptionServer:
         if frame_data == b"END_OF_AUDIO":
             return False
         elif isinstance(frame_data, bytes):
-            return np.frombuffer(frame_data, dtype=np.float32)
+            if self.options["format"] is None:
+                return np.frombuffer(frame_data, dtype=np.float32)
+            elif self.options["format"] == "Uint8List":
+                return np.frombuffer(frame_data, dtype=np.uint8)
         elif isinstance(frame_data, str):
             return json.loads(frame_data)
 
