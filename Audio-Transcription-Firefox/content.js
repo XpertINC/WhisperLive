@@ -65,7 +65,7 @@ function resampleTo16kHZ(audioData, origSampleRate = 44100) {
 
 function startRecording(data) {
     // socket = new WebSocket(`ws://${data.host}:${data.port}/`);
-    socket = new WebSocket(`wss://192.168.219.166:9090/`);
+    socket = new WebSocket(`ws://192.168.219.166:9090/`);
     language = data.language;
 
     const uuid = generateUUID();
