@@ -199,10 +199,15 @@ class TranscriptionServer:
         if frame_data == b"END_OF_AUDIO":
             return False
         elif isinstance(frame_data, bytes):
-            if self.options["format"] is None:
+            if self.options.get("format", None) is None:
                 return np.frombuffer(frame_data, dtype=np.float32)
-            elif self.options["format"] == "Uint8List":
-                return np.frombuffer(frame_data, dtype=np.uint8)
+            elif self.options.get("format", None) == "Uint8List":
+
+                uint8_data = np.frombuffer(frame_data, dtype=np.uint8)
+                float32_data = (uint8_data.astype(np.float32) / 127.5) - 1.0
+
+                return float32_data
+
         elif isinstance(frame_data, str):
             return json.loads(frame_data)
 
