@@ -199,9 +199,9 @@ class TranscriptionServer:
         if frame_data == b"END_OF_AUDIO":
             return False
         elif isinstance(frame_data, bytes):
-            if self.options["format"] is None:
+            if self.options.get("format", None) is None:
                 return np.frombuffer(frame_data, dtype=np.float32)
-            elif self.options["format"] == "Uint8List":
+            elif self.options.get("format", None) == "Uint8List":
                 # 먼저 Uint8로 읽은 후, float32로 변환
                 uint8_data = np.frombuffer(frame_data, dtype=np.uint8)
                 # 4바이트씩 float32로 변환
