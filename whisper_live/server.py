@@ -202,7 +202,10 @@ class TranscriptionServer:
             if self.options["format"] is None:
                 return np.frombuffer(frame_data, dtype=np.float32)
             elif self.options["format"] == "Uint8List":
-                return np.frombuffer(frame_data, dtype=np.uint8)
+                # 먼저 Uint8로 읽은 후, float32로 변환
+                uint8_data = np.frombuffer(frame_data, dtype=np.uint8)
+                # 4바이트씩 float32로 변환
+                return uint8_data.view(np.float32)
         elif isinstance(frame_data, str):
             return json.loads(frame_data)
 
